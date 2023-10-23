@@ -1,0 +1,86 @@
+buildscript {  
+    repositories {  
+	gradlePluginPortal()
+        mavenCentral()  
+    }  
+  
+  
+    dependencies {  
+        classpath 'com.bmuschko:gradle-tomcat-plugin:2.7.0'  
+    }  
+}  
+  
+  
+apply plugin: 'com.bmuschko.tomcat' 
+apply plugin: "java"
+apply plugin: "war"
+apply plugin: "maven-publish"
+
+// define the version for the project when publishing to maven
+group "bbdn.sample"
+version "1.0-SNAPSHOT"
+
+repositories {
+  mavenCentral()
+  maven {
+    url "https://maven.blackboard.com/repository/releases/"
+  }
+}
+
+configurations {
+  buildUtils
+}
+
+tomcat {
+    jasper {
+        validateXml = true
+        webXmlFragment = file("$webAppDir/WEB-INF/generated_web.xml")
+        addWebXmlMappings = true
+    }
+}
+
+// define the project's dependencies
+dependencies {
+
+  def tomcatVersion = '8.0.42'  
+  tomcat  "org.apache.tomcat.embed:tomcat-embed-core:${tomcatVersion}",  
+          "org.apache.tomcat.embed:tomcat-embed-logging-juli:${tomcatVersion}",  
+          "org.apache.tomcat.embed:tomcat-embed-jasper:${tomcatVersion}",
+          "blackboard.platform:bb-platform:3700.0.0",
+           "blackboard.platform:bb-taglibs:3700.0.0"
+  
+  implementation( "com.sun.jersey:jersey-server:1.19.4" )
+  implementation( "com.sun.jersey:jersey-core:1.19.4" )
+  implementation( "com.sun.jersey:jersey-servlet:1.19.4" )
+  implementation( "com.sun.jersey:jersey-json:1.19.4" )
+  implementation( "javax.cache:cache-api:1.1.0" )
+  
+ 
+  // Dependencies are libraries needed to build, but should not be included in the B2 WAR.
+  // You should NEVER include Learn JARs (other than webapis) in your B2.
+  providedCompile( "blackboard.platform:bb-platform:3900.13.0" ) { transitive = false }
+  providedCompile( "blackboard.platform:bb-taglibs:3900.13.0" ) { transitive = false }
+
+  // Building a Spring B2?  Use our Spring APIs!
+  // compile "blackboard.platform:bb-spring-webapi:10.1"
+
+  // Include the Blackboard security APIs for protecting your B2.
+  // providedCompile "blackboard.plugin:security:1.0:api"
+
+  // Dependencies that are only necessary at runtime so should be included in the WAR
+  // runtime "org.javassist:javassist:3.17.1-GA"
+}
+
+task compileJsps(type: JavaCompile) {
+  group = 'build'
+  description = 'Translates and compiles JSPs'
+  classpath = configurations.tomcat + sourceSets.main.output + sourceSets.main.runtimeClasspath
+  sourceCompatibility = '1.8'
+  targetCompatibility = '1.8'
+  destinationDirectory = file("src/main/webapp/WEB-INF/classes")
+  source = file("build/jasper/org/apache/jsp")
+  dependsOn classes
+  dependsOn tomcatJasper
+}
+
+war.dependsOn compileJsps
